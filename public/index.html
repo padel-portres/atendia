@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atendia - Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+    
+    .header { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: white; padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 1.5rem; }
+    .header .subtitle { opacity: 0.8; font-size: 0.9rem; }
+    
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; padding: 1.5rem 2rem; }
+    .stat-card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-card .number { font-size: 2rem; font-weight: 700; color: #6366f1; }
+    .stat-card .label { color: #64748b; font-size: 0.85rem; margin-top: 0.25rem; }
+    
+    .content { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; padding: 0 2rem 2rem; }
+    @media (max-width: 768px) { .content { grid-template-columns: 1fr; } }
+    
+    .panel { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+    .panel-header { padding: 1rem 1.5rem; border-bottom: 1px solid #e2e8f0; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+    .panel-body { padding: 1rem 1.5rem; max-height: 500px; overflow-y: auto; }
+    
+    .turno-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #f1f5f9; }
+    .turno-item:last-child { border-bottom: none; }
+    .turno-info { flex: 1; }
+    .turno-name { font-weight: 600; }
+    .turno-detail { font-size: 0.85rem; color: #64748b; }
+    .turno-time { text-align: right; }
+    .turno-date { font-weight: 600; color: #6366f1; }
+    .turno-hour { font-size: 0.85rem; color: #64748b; }
+    
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+    .badge-confirmed { background: #dcfce7; color: #166534; }
+    .badge-cancelled { background: #fef2f2; color: #991b1b; }
+    
+    .conv-item { padding: 0.75rem 0; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+    .conv-item:hover { background: #f8fafc; }
+    .conv-phone { font-weight: 600; font-size: 0.9rem; }
+    .conv-preview { font-size: 0.8rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
+    .conv-time { font-size: 0.75rem; color: #94a3b8; }
+    
+    .btn-cancel { background: none; border: 1px solid #ef4444; color: #ef4444; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.75rem; cursor: pointer; }
+    .btn-cancel:hover { background: #ef4444; color: white; }
+    
+    .tab-bar { display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; }
+    .tab { padding: 0.75rem 1.5rem; cursor: pointer; font-weight: 500; color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+    
+    .empty { text-align: center; padding: 2rem; color: #94a3b8; }
+    
+    .refresh-btn { background: none; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.25rem 0.75rem; cursor: pointer; font-size: 0.85rem; }
+    .refresh-btn:hover { background: #f1f5f9; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>🦷 Atendia</h1>
+      <div class="subtitle" id="practiceName">Dashboard del consultorio</div>
+    </div>
+    <div style="text-align: right;">
+      <div id="statusBadge" style="font-size: 0.85rem;">Cargando...</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="number" id="todayCount">-</div>
+      <div class="label">Turnos hoy</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="upcomingCount">-</div>
+      <div class="label">Turnos próximos</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="convCount">-</div>
+      <div class="label">Conversaciones</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="panel">
+      <div class="panel-header">
+        <span>📅 Turnos</span>
+        <div>
+          <button class="refresh-btn" onclick="loadData()">🔄 Actualizar</button>
+        </div>
+      </div>
+      <div class="tab-bar">
+        <div class="tab active" data-tab="upcoming" onclick="switchTab('upcoming')">Próximos</div>
+        <div class="tab" data-tab="all" onclick="switchTab('all')">Todos</div>
+      </div>
+      <div class="panel-body" id="turnosList">
+        <div class="empty">Cargando turnos...</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">💬 Conversaciones recientes</div>
+      <div class="panel-body" id="convList">
+        <div class="empty">Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversation detail modal -->
+  <div id="convModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; display:none; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:12px; width:90%; max-width:500px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
+      <div style="padding:1rem 1.5rem; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <strong id="convModalPhone"></strong>
+        <button onclick="closeModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">×</button>
+      </div>
+      <div id="convModalMessages" style="flex:1; overflow-y:auto; padding:1rem 1.5rem;"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 'upcoming';
+
+    async function loadData() {
+      try {
+        const [stats, config] = await Promise.all([
+          fetch('/api/stats').then(r => r.json()),
+          fetch('/api/config').then(r => r.json()),
+        ]);
+        
+        document.getElementById('todayCount').textContent = stats.todayCount;
+        document.getElementById('upcomingCount').textContent = stats.upcomingCount;
+        document.getElementById('convCount').textContent = stats.conversationCount;
+        document.getElementById('practiceName').textContent = config.practice_name || 'Dashboard';
+        
+        loadTurnos();
+        loadConversations();
+      } catch (e) {
+        console.error('Error loading data:', e);
+      }
+    }
+
+    async function loadTurnos() {
+      const url = currentTab === 'all' ? '/api/turnos?all=true' : '/api/turnos';
+      const turnos = await fetch(url).then(r => r.json());
+      const container = document.getElementById('turnosList');
+      
+      if (turnos.length === 0) {
+        container.innerHTML = '<div class="empty">No hay turnos</div>';
+        return;
+      }
+
+      container.innerHTML = turnos.map(t => `
+        <div class="turno-item">
+          <div class="turno-info">
+            <div class="turno-name">${t.patient_name}</div>
+            <div class="turno-detail">${t.service || 'Sin especificar'} · ${t.obra_social || 'Particular'}</div>
+            <span class="badge badge-${t.status}">${t.status}</span>
+          </div>
+          <div class="turno-time">
+            <div class="turno-date">${formatDate(t.date)}</div>
+            <div class="turno-hour">${t.time} hs</div>
+            ${t.status === 'confirmed' ? `<button class="btn-cancel" onclick="cancelTurno(${t.id})">Cancelar</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function loadConversations() {
+      const convs = await fetch('/api/conversations').then(r => r.json());
+      const container = document.getElementById('convList');
+      
+      if (convs.length === 0) {
+        container.innerHTML = '<div class="empty">No hay conversaciones</div>';
+        return;
+      }
+
+      container.innerHTML = convs.map(c => {
+        const lastMsg = c.messages[c.messages.length - 1];
+        const phone = c.patient_phone.replace('@c.us', '');
+        return `
+          <div class="conv-item" onclick='showConversation(${JSON.stringify(c)})'>
+            <div class="conv-phone">📱 ${phone}</div>
+            <div class="conv-preview">${lastMsg ? lastMsg.content.substring(0, 60) : '...'}</div>
+            <div class="conv-time">${lastMsg ? new Date(lastMsg.timestamp).toLocaleString('es-AR') : ''}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function showConversation(conv) {
+      const modal = document.getElementById('convModal');
+      const phone = conv.patient_phone.replace('@c.us', '');
+      document.getElementById('convModalPhone').textContent = '📱 ' + phone;
+      
+      const container = document.getElementById('convModalMessages');
+      container.innerHTML = conv.messages.map(m => `
+        <div style="margin-bottom:0.75rem; text-align:${m.role === 'user' ? 'left' : 'right'};">
+          <div style="display:inline-block; max-width:80%; padding:0.5rem 0.75rem; border-radius:12px; 
+            background:${m.role === 'user' ? '#f1f5f9' : '#6366f1'}; 
+            color:${m.role === 'user' ? '#1a1a2e' : 'white'}; font-size:0.9rem;">
+            ${m.content}
+          </div>
+          <div style="font-size:0.7rem; color:#94a3b8; margin-top:0.25rem;">
+            ${new Date(m.timestamp).toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'})}
+          </div>
+        </div>
+      `).join('');
+      
+      modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('convModal').style.display = 'none';
+    }
+
+    async function cancelTurno(id) {
+      if (!confirm('¿Cancelar este turno?')) return;
+      await fetch(`/api/turnos/${id}/cancel`, { method: 'POST' });
+      loadData();
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      loadTurnos();
+    }
+
+    function formatDate(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      return `${d}/${m}`;
+    }
+
+    // Auto-refresh every 30s
+    loadData();
+    setInterval(loadData, 30000);
+  </script>
+</body>
+</html>
